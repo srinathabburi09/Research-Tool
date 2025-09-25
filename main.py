@@ -63,7 +63,7 @@ def process_urls(urls):
         # Split documents into chunks
         phase_messages.append("Text Splitter...Started...✅")
         chunked_docs = []
-        splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)  # increased overlap
+        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)  # increased overlap
         for doc in docs:
             chunks = splitter.split_text(doc.page_content)
             for chunk in chunks:
