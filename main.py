@@ -114,7 +114,7 @@ def answer_question(query):
         if source_docs:
             first_doc = source_docs[0]
             # Include context from the first source in the answer
-            answer_with_context = f"{answer}\n\nContext from source:\n{first_doc.page_content[:500]}..."
+            answer_with_context = f"{answer}\n\nContext from source:\n{first_doc.page_content[:300]}..."
             st.header("Answer")
             st.write(answer_with_context)
 
