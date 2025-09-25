@@ -8,3 +8,4 @@ langchain-community
 langchain-huggingface
 unstructured
 faiss-cpu
+sentence-transformers
