@@ -25,10 +25,10 @@ FILE_PATH = "vectorindex_hf.pkl"
 # ---------------------------
 hf_pipeline = pipeline(
     "text2text-generation",
-    model="google/flan-t5-small",
-    max_length=300,
+    model="google/flan-t5-base",  # upgraded model
+    max_length=500,
     do_sample=True,
-    temperature=0.9
+    temperature=0.7
 )
 llm = HuggingFacePipeline(pipeline=hf_pipeline)
 
@@ -52,7 +52,7 @@ def process_urls(urls):
     phase_messages = []
     try:
         # Load documents
-        phase_messages.append("Data Loading...Started...✅✅✅")
+        phase_messages.append("Data Loading...Started...✅")
         loader = UnstructuredURLLoader(urls=urls)
         docs = loader.load()
         for i, doc in enumerate(docs):
@@ -61,9 +61,9 @@ def process_urls(urls):
         phase_messages.append("Data Loaded Successfully ✅")
 
         # Split documents into chunks
-        phase_messages.append("Text Splitter...Started...✅✅✅")
+        phase_messages.append("Text Splitter...Started...✅")
         chunked_docs = []
-        splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)  # increased overlap
         for doc in docs:
             chunks = splitter.split_text(doc.page_content)
             for chunk in chunks:
@@ -71,8 +71,8 @@ def process_urls(urls):
         phase_messages.append(f"Text Split into {len(chunked_docs)} chunks ✅")
 
         # Build embeddings and FAISS vector store
-        phase_messages.append("Embedding Vector Started Building...✅✅✅")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        phase_messages.append("Embedding Vector Started Building...✅")
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")  # better embeddings
         vectorindex_hf = FAISS.from_documents(chunked_docs, embeddings)
 
         # Save FAISS index
