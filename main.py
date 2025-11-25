@@ -5,7 +5,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 # LangChain imports
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
@@ -73,11 +73,12 @@ def process_urls(urls):
         # Build embeddings and FAISS vector store
         phase_messages.append("Embedding Vector Started Building...✅✅✅")
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        vectorindex_hf = FAISS.from_documents(chunked_docs, embeddings)
-
-        # Save FAISS index
-        with open(FILE_PATH, "wb") as f:
-            pickle.dump(vectorindex_hf, f)
+        vectorindex_hf = Chroma.from_documents(
+            documents=chunked_docs,
+            embedding=embeddings,
+            persist_directory="db"
+            )
+        vectorindex_hf.persist()
         phase_messages.append("FAISS Index Saved Successfully ✅")
 
         # Show messages in Streamlit
@@ -96,8 +97,9 @@ def answer_question(query):
         st.warning("FAISS index not found. Please process URLs first.")
         return
 
-    with open(FILE_PATH, "rb") as f:
-        vectorindex_hf = pickle.load(f)
+    vectorindex_hf = Chroma(
+    embedding_function=embeddings,
+    persist_directory="db")
 
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
