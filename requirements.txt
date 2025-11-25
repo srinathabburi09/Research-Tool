@@ -1,23 +1,10 @@
-streamlit==1.32.0
+streamlit
+langchain
+langchain-community
+langchain-huggingface
+chromadb
+sentence-transformers
+transformers
+unstructured
 python-dotenv
-requests
-
-# LangChain
-langchain==0.1.17
-langchain-community==0.0.19
-langchain-huggingface==0.0.7
-
-# Embeddings + Transformers
-sentence-transformers==2.2.2
-transformers==4.39.3
-accelerate
-
-# ChromaDB (Vector Database)
-chromadb==0.4.22
-
-# Loaders
-unstructured==0.12.4
-unstructured[html]==0.12.4
-
-beautifulsoup4
-lxml
+tiktoken
