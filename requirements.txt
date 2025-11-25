@@ -2,23 +2,22 @@ streamlit==1.32.0
 python-dotenv
 requests
 
-# --- LangChain (Compatible Versions) ---
+# LangChain
 langchain==0.1.17
 langchain-community==0.0.19
 langchain-huggingface==0.0.7
 
-# --- Transformers & Embeddings ---
-transformers==4.39.3
+# Embeddings + Transformers
 sentence-transformers==2.2.2
+transformers==4.39.3
 accelerate
 
-# --- Vector DB ---
-faiss-cpu==1.7.2.post2
+# ChromaDB (Vector Database)
+chromadb==0.4.22
 
-# --- Unstructured Loader ---
+# Loaders
 unstructured==0.12.4
 unstructured[html]==0.12.4
 
-# --- Other required libs ---
 beautifulsoup4
 lxml
