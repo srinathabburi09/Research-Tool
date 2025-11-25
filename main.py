@@ -1,136 +1,139 @@
 import os
-import pickle
 import time
 import streamlit as st
+import chromadb
 from dotenv import load_dotenv
 
-# LangChain imports
-from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+from langchain.chains import RetrievalQA
+
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
 
 # ---------------------------
-# Load environment variables
+# Load ENV
 # ---------------------------
 load_dotenv()
-FILE_PATH = "vectorindex_hf.pkl"
 
 # ---------------------------
-# Initialize LLM pipeline globally
+# Chroma DB setup
+# ---------------------------
+CHROMA_DIR = "chroma_store"
+
+chroma_client = chromadb.PersistentClient(CHROMA_DIR)
+collection = chroma_client.get_or_create_collection(
+    name="news_collection",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# ---------------------------
+# LLM Pipeline
 # ---------------------------
 hf_pipeline = pipeline(
     "text2text-generation",
     model="google/flan-t5-small",
     max_length=300,
     do_sample=True,
-    temperature=0.9
+    temperature=0.7
 )
+
 llm = HuggingFacePipeline(pipeline=hf_pipeline)
 
 # ---------------------------
 # Streamlit UI
 # ---------------------------
 st.title("News Research Tool 📈")
-st.sidebar.title("News Article URLs")
+st.sidebar.title("Enter News Article URLs")
 
-# Collect URLs from sidebar input
 urls = [st.sidebar.text_input(f"URL {i+1}") for i in range(3)]
-urls = [u for u in urls if u]  # remove empty inputs
+urls = [u for u in urls if u]
 
-process_url_clicked = st.sidebar.button("Process URLs")
+process_clicked = st.sidebar.button("Process URLs")
 main_placeholder = st.empty()
 
+
 # ---------------------------
-# Function to process URLs and build FAISS
+# Process URLs → ChromaDB
 # ---------------------------
 def process_urls(urls):
-    phase_messages = []
-    try:
-        # Load documents
-        phase_messages.append("Data Loading...Started...✅✅✅")
-        loader = UnstructuredURLLoader(urls=urls)
-        docs = loader.load()
-        for i, doc in enumerate(docs):
-            if "source" not in doc.metadata:
-                doc.metadata["source"] = urls[i]
-        phase_messages.append("Data Loaded Successfully ✅")
 
-        # Split documents into chunks
-        phase_messages.append("Text Splitter...Started...✅✅✅")
-        chunked_docs = []
-        splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
-        for doc in docs:
-            chunks = splitter.split_text(doc.page_content)
-            for chunk in chunks:
-                chunked_docs.append(Document(page_content=chunk, metadata=doc.metadata))
-        phase_messages.append(f"Text Split into {len(chunked_docs)} chunks ✅")
+    loader = UnstructuredURLLoader(urls=urls)
+    docs = loader.load()
 
-        # Build embeddings and FAISS vector store
-        phase_messages.append("Embedding Vector Started Building...✅✅✅")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        vectorindex_hf = Chroma.from_documents(
-            documents=chunked_docs,
-            embedding=embeddings,
-            persist_directory="db"
+    # Ensure each document has metadata
+    for i, doc in enumerate(docs):
+        doc.metadata["source"] = urls[i]
+
+    # Text splitting
+    splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+    chunked_docs = []
+
+    for doc in docs:
+        chunks = splitter.split_text(doc.page_content)
+        for chunk in chunks:
+            chunked_docs.append(
+                Document(page_content=chunk, metadata=doc.metadata)
             )
-        vectorindex_hf.persist()
-        phase_messages.append("FAISS Index Saved Successfully ✅")
 
-        # Show messages in Streamlit
-        for msg in phase_messages:
-            main_placeholder.text(msg)
-            time.sleep(0.5)
+    # Embeddings
+    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-    except Exception as e:
-        st.error(f"Error while processing URLs: {str(e)}")
+    # Add to ChromaDB
+    for i, c in enumerate(chunked_docs):
+        collection.add(
+            ids=[f"chunk_{time.time()}_{i}"],
+            documents=[c.page_content],
+            metadatas=[c.metadata],
+            embeddings=[embedding_model.embed_query(c.page_content)]
+        )
+
+    main_placeholder.success("ChromaDB updated successfully! ✅")
+
 
 # ---------------------------
-# Function to answer question
+# Answer question using ChromaDB retrieval
 # ---------------------------
 def answer_question(query):
-    if not os.path.exists(FILE_PATH):
-        st.warning("FAISS index not found. Please process URLs first.")
-        return
 
-    vectorindex_hf = Chroma(
-    embedding_function=embeddings,
-    persist_directory="db")
+    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-    qa_chain = RetrievalQA.from_chain_type(
+    # Retrieve top 3 relevant docs
+    results = collection.query(
+        query_embeddings=[embedding_model.embed_query(query)],
+        n_results=3
+    )
+
+    retrieved_docs = [
+        Document(page_content=doc, metadata=meta)
+        for doc, meta in zip(results["documents"][0], results["metadatas"][0])
+    ]
+
+    retriever = lambda _: retrieved_docs
+
+    qa = RetrievalQA.from_chain_type(
         llm=llm,
-        retriever=vectorindex_hf.as_retriever(search_kwargs={"k": 3}),
-        chain_type="map_reduce",
+        retriever=retriever,
+        chain_type="stuff",
         return_source_documents=True
     )
 
-    result = qa_chain({"query": query})
-    answer = result.get("result", "")
-    source_docs = result.get("source_documents", [])
+    result = qa({"query": query})
 
-    if answer:
-        if source_docs:
-            first_doc = source_docs[0]
-            # Include context from the first source in the answer
-            answer_with_context = f"{answer}\n\nContext from source:\n{first_doc.page_content[:300]}..."
-            st.header("Answer")
-            st.write(answer_with_context)
+    st.write("### Answer")
+    st.write(result["result"])
 
-            # Display only the source URL
-            st.subheader("Source:")
-            st.markdown(f"- {first_doc.metadata.get('source', 'No source')}")
-        else:
-            st.header("Answer")
-            st.write(answer)
+    st.write("### Sources")
+    for src in results["metadatas"][0]:
+        st.write(f"- {src['source']}")
+
 
 # ---------------------------
-# Streamlit button actions
+# Button actions
 # ---------------------------
-if process_url_clicked and urls:
+if process_clicked and urls:
     process_urls(urls)
 
 query = st.text_input("Ask a question:")
