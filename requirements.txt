@@ -13,7 +13,7 @@ sentence-transformers==2.2.2
 accelerate
 
 # --- Vector DB ---
-faiss-cpu==1.7.4
+faiss-cpu==1.7.2.post2
 
 # --- Unstructured Loader ---
 unstructured==0.12.4
