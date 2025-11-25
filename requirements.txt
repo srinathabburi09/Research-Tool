@@ -1,18 +1,24 @@
+streamlit==1.32.0
+python-dotenv
+requests
+
+# --- LangChain (Compatible Versions) ---
 langchain==0.1.17
 langchain-community==0.0.19
 langchain-huggingface==0.0.7
 
+# --- Transformers & Embeddings ---
 transformers==4.39.3
 sentence-transformers==2.2.2
 accelerate
 
+# --- Vector DB ---
 faiss-cpu==1.7.4
 
-unstructured
-unstructured[html]
+# --- Unstructured Loader ---
+unstructured==0.12.4
+unstructured[html]==0.12.4
 
-python-dotenv
-streamlit==1.32.0
-tiktoken
-huggingface-hub
-requests
+# --- Other required libs ---
+beautifulsoup4
+lxml
